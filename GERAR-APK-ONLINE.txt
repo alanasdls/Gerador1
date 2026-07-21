@@ -1,0 +1,12 @@
+GERAR O APK AUTOMATICAMENTE PELO GITHUB
+
+1. Crie uma conta gratuita no GitHub, caso ainda não tenha.
+2. Crie um novo repositório vazio.
+3. Envie todo o conteúdo desta pasta para o repositório.
+4. Abra a guia Actions do repositório.
+5. Selecione “Gerar APK Android”.
+6. Clique em “Run workflow”.
+7. Ao terminar, abra a execução e baixe o artefato “Gerador-de-Milhares-APK”.
+8. Dentro do ZIP baixado estará o arquivo app-debug.apk.
+
+O APK debug já pode ser instalado no Android. O aparelho poderá pedir autorização para instalar aplicativos desconhecidos.
