@@ -1,0 +1,8 @@
+{
+  "name":"geradorrebeca",
+  "main":"worker.mjs",
+  "compatibility_date":"2026-10-27",
+  "keep_vars":true,
+  "assets":{"directory":"./public","binding":"ASSETS","run_worker_first":true,"html_handling":"none","not_found_handling":"none"},
+  "d1_databases":[{"binding":"DB","database_name":"geradorrebeca-cadastros","database_id":"3d7b566b-d2ff-4b7a-9290-8f5e71193776","migrations_dir":"migrations"}]
+}
