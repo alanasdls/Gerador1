@@ -43,15 +43,16 @@ export async function delays(key,fetcher=fetch){
  return {ok:true,nome:config.name,fonte:'Bicho Certo',fonte_url:url,consultado_em:new Date().toISOString(),itens:parseDelays(await r.text())};
 }
 export async function lineHistory(key,env,fetcher=fetch){
- bankFor(key);if(!env.REBECA_ANALYSIS_KEY)throw Error('As linhas estão temporariamente indisponíveis.');
- const r=await fetcher('https://vip-api.delamarkpalpites.com/rebeca/historico',{method:'POST',headers:{'content-type':'application/json','x-gateway-key':env.REBECA_ANALYSIS_KEY},body:JSON.stringify({banca:key}),redirect:'error',signal:AbortSignal.timeout(10000)});
- if(!r.ok)throw Error('As linhas estão temporariamente indisponíveis.');
- const data=await r.json();if(!data.ok||data.data_referencia!==daySP()||!Array.isArray(data.ranking_linhas)||data.ranking_linhas.length!==5)throw Error('O histórico das linhas está indisponível.');
+ bankFor(key);if(!env.REBECA_ANALYSIS_KEY)throw Error('HISTORY_CONFIG_MISSING');
+ const r=await fetcher('https://vip-api.delamarkpalpites.com/rebeca/historico',{method:'POST',headers:{'content-type':'application/json','x-gateway-key':env.REBECA_ANALYSIS_KEY},body:JSON.stringify({banca:key}),redirect:'manual',signal:AbortSignal.timeout(10000)});
+ if(!r.ok)throw Error('HISTORY_HTTP_'+r.status);
+ const data=await r.json();if(!data.ok||data.data_referencia!==daySP()||!Array.isArray(data.ranking_linhas)||data.ranking_linhas.length!==5)throw Error('HISTORY_INVALID_RESPONSE');
  return data;
 }
 export async function analysis(key,env,fetcher=fetch){
  bankFor(key);const now=new Date();
  const [history,latest]=await Promise.allSettled([lineHistory(key,env,fetcher),results(key,'',fetcher)]);
+ if(history.status==='rejected')console.warn('Rebeca history unavailable',key,/^HISTORY_[A-Z0-9_]+$/.test(history.reason?.message)?history.reason.message:history.reason?.name||'Error');
  const last=latest.status==='fulfilled'?latest.value.extracoes.at(-1):null;
  const number=last?.premios.find(p=>p.posicao===1)?.milhar.slice(-4);
  return {ok:true,nome:BANKS[key].name,data_referencia:daySP(now),consultado_em:now.toISOString(),

@@ -4,7 +4,7 @@ import {createServer} from 'node:http';
 import {readFileSync} from 'node:fs';
 import {generateNumbers} from './public/generator-core.mjs';
 import {PULLS,daySP,sums,animal} from './public/methods-data.mjs';
-import {parseDelays,normalizeResults,validDate} from './market.mjs';
+import {parseDelays,normalizeResults,validDate,lineHistory} from './market.mjs';
 import {handler,project} from './bridge/server.mjs';
 import {rows,sourceDraw,delayHtml,fixtureFetch} from './methods-fixtures.mjs';
 import worker from './worker.mjs';
@@ -39,6 +39,13 @@ test('line ranking uses first-prize extraction delays, validates all groups and 
  assert.equal(data.ranking_linhas[0].linha,3);assert.equal(data.ranking_linhas[0].atraso_extracoes,8);
  assert.doesNotMatch(JSON.stringify(data),/private|phone|tenant_id/);
  assert.throws(()=>project(rows.slice(1)));assert.throws(()=>project(rows.map((r,i)=>i===0?{...r,ultima_aparicao_data:null}:r)));
+});
+
+test('history request uses Workers-compatible manual redirects and rejects redirected credentials',async()=>{
+ await assert.rejects(lineHistory('rio',{REBECA_ANALYSIS_KEY:'synthetic'},async(url,options)=>{
+  assert.equal(options.redirect,'manual');assert.equal(options.headers['x-gateway-key'],'synthetic');
+  return new Response(null,{status:302,headers:{location:'https://untrusted.test/'}});
+ }),/HISTORY_HTTP_302/);
 });
 test('delay parser requires all 25 actual animals and rejects incomplete source pages',()=>{
  const parsed=parseDelays(delayHtml);assert.equal(parsed.length,25);assert.equal(parsed[0].grupo,25);assert.equal(parsed.at(-1).dias,0);
