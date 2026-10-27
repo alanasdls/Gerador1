@@ -21,21 +21,31 @@ Visitors register with name and Brazilian mobile number and immediately receive 
 - `customers`: unique normalized phone, first submitted name, creation timestamp and privacy notice version.
 - `sessions`: SHA-256 token digest, customer ID, name supplied in that browser and expiry. The random token is stored only in a Secure/HttpOnly/SameSite cookie.
 - Name and phone are self-declared; registration is not verification of identity or phone ownership. Repeating a phone does not overwrite or reveal the previous name. Do not add sensitive account information or account recovery without independent verification.
-- There is no public customer list/export API. Database administration requires the owner's authenticated Cloudflare account. Registration does not authorize outbound promotional messages.
+- There is no public customer list/export API. The authorized administrator can view names and phones through the protected `/api/admin/clientes` endpoint. Registration does not authorize outbound promotional messages.
 - `/painel` and `/api/session` require a valid session. HTML and API responses are not cached. The replacement service worker removes the legacy offline cache and does not cache private data.
 - Daily hashed connection buckets limit registration attempts to 20 per day. Expired sessions and buckets are removed on registration. No raw IP is saved.
+
+## Administrator
+
+The owner assigned phone `5511998909994` to view Rebeca registrations. Ordinary name/phone registration never grants administrative access, even when that number is entered. It only shows a **Clientes cadastrados** menu link to `/administracao`.
+
+The owner receives a random, single-use setup link with the invitation in the URL fragment, not the HTTP request. The administrator enters the authorized phone and creates a 12–128 character password. The server checks the invitation against `REBECA_ADMIN_SETUP_HASH`; an atomic insert prevents the invite from replacing a configured password. Only the invitation digest is stored on the Worker. Never commit or log invitations, passwords or secrets.
+
+Passwords use salted PBKDF2-SHA-256 (100,000 iterations supported by Workers), with an independent HMAC pepper (`REBECA_ADMIN_PEPPER`) stored as a Worker secret. Admin sessions are independent random tokens, hashed in D1, with an eight-hour Secure/HttpOnly/SameSite=Strict cookie. Login and setup are limited to eight attempts per connection per 15 minutes. POSTs enforce same-origin requests. Admin logout, ordinary logout and a new ordinary registration revoke the current administrative session. Do not rotate the pepper after setup without an explicit credential recovery plan.
+
+The private API checks authorization on every request and returns only names and phones, 50 rows per page, with search and no-store headers. The UI clears rows on logout and browser history restoration and does not store contact lists locally. `0002_admin.sql` adds only credentials/session tables; it does not modify customer records. Initial setup and later login are also available directly at `/administracao`, without creating a normal registration.
 
 ## Verification
 
 Node 24+ provides the SQLite test adapter. It executes the real migration and SQL, in memory only:
 
 ```sh
-node --test web/worker.test.mjs web/methods.test.mjs
+node --test web/worker.test.mjs web/methods.test.mjs web/admin.test.mjs
 node web/browser-check.mjs /path/to/installed/playwright-core
 wrangler deploy --dry-run --config web/wrangler.jsonc
 ```
 
-Browser verification uses installed Chrome, a temporary local HTTP server, fictional input, source fixtures and an in-memory database. It checks registration, persistence, the secure session, all generator modes, all six method pages, copying, date and lottery changes, navigation, history, profile, logout and four responsive widths. Screenshots are ignored under `web/qa-output`. Live sources need a separate smoke check after deployment.
+Browser verification uses installed Chrome, a temporary local HTTP server, fictional input, source fixtures and an in-memory database. It checks registration, persistence, the secure session, all generator modes, all six method pages, copying, navigation, admin setup/login, protected contacts, search, pagination, logout and four responsive widths. Screenshots are ignored under `web/qa-output`. Live sources need a separate smoke check after deployment.
 
 ## Deployment
 
@@ -49,5 +59,7 @@ wrangler deploy --config web/wrangler.jsonc
 The existing Cloudflare domain route remains `geradoresdepalpites.com.br`. The configuration retains existing variables. The methods change requires no migration or customer-data modification. Install the isolated bridge and set `REBECA_ANALYSIS_KEY` before publishing the Worker. The guarded `bridge/install.py` is for the initial installation only; it backs up the Nginx config and adds an exact `/rebeca/historico` route. This change does not restart or modify the Caim/Mark billing or WhatsApp services.
 
 Baseline for methods rollback: Worker version `d9a9f762-f24f-46b2-be8c-2965fb3b5842` (registration and original gold dashboard). Keep the D1 database intact so existing registrations are retained.
+
+Baseline for administrator rollback: `6fcc2d4f-964e-484e-8040-e23a49b00b04` (all methods, no web administrator). Apply migration 0002 and configure both admin secrets before deploying. The administration change does not modify or restart VPS services.
 
 After publication, verify the landing page and public assets, the unauthenticated session response (401), redirect protection of `/painel`, the new service worker and the remote table structure. Do not generate real customer messages or payment requests to test this site.

@@ -1,5 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
-import { readFileSync } from 'node:fs';
+import { readFileSync,readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -7,7 +7,7 @@ import path from 'node:path';
 export function testEnvironment() {
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec('PRAGMA foreign_keys=ON');
-  sqlite.exec(readFileSync(new URL('./migrations/0001_registration.sql', import.meta.url), 'utf8'));
+  for(const file of readdirSync(new URL('./migrations/',import.meta.url)).filter(f=>f.endsWith('.sql')).sort())sqlite.exec(readFileSync(new URL('./migrations/'+file,import.meta.url),'utf8'));
   const root = fileURLToPath(new URL('./public/', import.meta.url));
   const mime = {'.html':'text/html; charset=utf-8','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.webmanifest':'application/manifest+json'};
   const DB = {
@@ -17,6 +17,7 @@ export function testEnvironment() {
       return {
         bind(...args) { values = Object.fromEntries(args.map((v,i)=>['p'+(i+1),v])); return this; },
         async first() { return statement.get(values) || null; },
+        async all() { return {results:statement.all(values)}; },
         async run() { return statement.run(values); }
       };
     },
