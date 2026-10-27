@@ -9,7 +9,7 @@ export function testEnvironment() {
   sqlite.exec('PRAGMA foreign_keys=ON');
   sqlite.exec(readFileSync(new URL('./migrations/0001_registration.sql', import.meta.url), 'utf8'));
   const root = fileURLToPath(new URL('./public/', import.meta.url));
-  const mime = {'.html':'text/html; charset=utf-8','.js':'text/javascript','.css':'text/css','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.webmanifest':'application/manifest+json'};
+  const mime = {'.html':'text/html; charset=utf-8','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.webmanifest':'application/manifest+json'};
   const DB = {
     prepare(sql) {
       const statement = sqlite.prepare(sql.replace(/\?(\d+)/g, (_, i) => '$p'+i));

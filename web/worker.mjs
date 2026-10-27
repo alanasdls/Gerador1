@@ -1,3 +1,5 @@
+import {results,delays,analysis,bankFor,validDate} from './market.mjs';
+import {SIGN_INFO,keywordsFromText,researchInternet,generateThousands,horoscopeText,dreamText} from './research.mjs';
 const COOKIE='__Host-rebeca_session',MAX_AGE=60*60*24*90;
 const encoder=new TextEncoder();
 const hash=async text=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',encoder.encode(text)))].map(n=>n.toString(16).padStart(2,'0')).join('');
@@ -57,6 +59,34 @@ export default {async fetch(request,env){
    if(path==='/api/sair'&&request.method==='POST'){
     const token=tokenOf(request);if(token)await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?1').bind(await hash(token)).run();
     return json({ok:true},200,{'set-cookie':cookie('',0)});
+   }
+   if(['/api/metodos/resultados','/api/metodos/atrasados','/api/metodos/analises','/api/metodos/sonhos','/api/metodos/horoscopo'].includes(path)){
+    const user=await session(request,env);if(!user)return json({error:'Entre para continuar.'},401);
+    const method=path.split('/').at(-1),isResearch=['sonhos','horoscopo'].includes(method);
+    if(request.method!==(isResearch?'POST':'GET'))return json({error:'Solicitação inválida.'},405);
+    if(!isResearch){
+     const bank=url.searchParams.get('banca')||'look-goias',date=url.searchParams.get('data')||'';
+     try{bankFor(bank);}catch{return json({error:'Escolha uma loteria válida.'},400);}
+     if(date&&!validDate(date))return json({error:'Informe uma data válida.'},400);
+     try{return json(method==='resultados'?await results(bank,date):method==='atrasados'?await delays(bank):await analysis(bank,env));}
+     catch{return json({error:'A consulta está temporariamente indisponível. Tente atualizar em instantes.'},503);}
+    }
+    if(!request.headers.get('content-type')?.startsWith('application/json'))return json({error:'Solicitação inválida.'},415);
+    if(Number(request.headers.get('content-length')||0)>2048)return json({error:'Texto muito longo.'},413);
+    const raw=await request.text();if(raw.length>2048)return json({error:'Texto muito longo.'},413);
+    let input;try{input=JSON.parse(raw);}catch{return json({error:'Confira os dados informados.'},400);}
+    const dream=typeof input?.dream==='string'?input.dream.trim():'',sign=typeof input?.sign==='string'&&Object.hasOwn(SIGN_INFO,input.sign)?SIGN_INFO[input.sign]:null;
+    if(method==='sonhos'&&(dream.length<2||dream.length>500))return json({error:'Descreva seu sonho usando de 2 a 500 caracteres.'},400);
+    if(method==='horoscopo'&&!sign)return json({error:'Selecione seu signo.'},400);
+    const now=Date.now(),bucket='research:'+await hash((request.headers.get('cf-connecting-ip')||'local')+':'+Math.floor(now/60000));
+    const rate=await env.DB.prepare('INSERT INTO registration_limits(bucket,attempts,expires_at) VALUES(?1,1,?2) ON CONFLICT(bucket) DO UPDATE SET attempts=attempts+1 RETURNING attempts').bind(bucket,now+60000).first();
+    if(rate.attempts>10)return json({error:'Aguarde um minuto antes de gerar outra leitura.'},429);
+    try{
+     const queries=method==='sonhos'?(keywordsFromText(dream,5).length?keywordsFromText(dream,5):['sonho']).map(k=>`${k} significado sonho`):[`${sign[0]} signo zodiacal astrologia`,`${sign[0]} zodíaco`];
+     const research=await researchInternet(queries,3,{dream,sign:method==='horoscopo'?String(input.sign):null}),picks=await generateThousands([dream,sign?.[0],research.map(r=>r.title).join('|')].join('|'),25);
+     const reading=method==='sonhos'?dreamText(dream,research,picks,'rebeca'):horoscopeText(user.name,sign[0],research,picks,'rebeca');
+     return json({ok:true,...reading,picks,research,sign:sign?.[0],emoji:sign?.[1],consultado_em:new Date().toISOString()});
+    }catch{return json({error:'A pesquisa está indisponível agora. Tente novamente em instantes.'},503);}
    }
    return json({error:'Página não encontrada.'},404);
   }

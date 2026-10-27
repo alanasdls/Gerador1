@@ -1,6 +1,6 @@
 (() => {
  const menu=document.getElementById('menuDialog'),opener=document.getElementById('openMenu');
- function show(name){if(!['inicio','gerador','historico','perfil'].includes(name))name='inicio';document.querySelectorAll('[data-page]').forEach(el=>el.hidden=el.dataset.page!==name);document.querySelectorAll('.bottom-nav [data-view]').forEach(el=>{el.classList.toggle('active',el.dataset.view===name);if(el.dataset.view===name)el.setAttribute('aria-current','page');else el.removeAttribute('aria-current');});menu.close();window.scrollTo(0,0);}
+ function show(name){if(!['inicio','gerador','historico','perfil','analises','resultados','atrasados','puxadas','sonhos','horoscopo'].includes(name))name='inicio';document.querySelectorAll('[data-page]').forEach(el=>el.hidden=el.dataset.page!==name);document.querySelectorAll('.bottom-nav [data-view]').forEach(el=>{el.classList.toggle('active',el.dataset.view===name);if(el.dataset.view===name)el.setAttribute('aria-current','page');else el.removeAttribute('aria-current');});menu.close();window.scrollTo(0,0);window.dispatchEvent(new CustomEvent('rebeca:view',{detail:name}));}
  function go(name){history.pushState(null,'','#'+name);show(name);}
  document.addEventListener('click',e=>{const button=e.target.closest('[data-view]');if(button)go(button.dataset.view);const mode=e.target.closest('[data-mode]');if(mode){go('gerador');document.getElementById(mode.dataset.mode==='dry'?'dryShot':'closedAnimal').click();}});
  window.addEventListener('hashchange',()=>show(location.hash.slice(1)));show(location.hash.slice(1));

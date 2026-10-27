@@ -1,0 +1,24 @@
+[Unit]
+Description=Rebeca read-only lottery history
+After=network.target
+[Service]
+Type=simple
+WorkingDirectory=/opt/rebeca-methods
+ExecStart=/usr/bin/node /opt/rebeca-methods/server.mjs
+Restart=on-failure
+RestartSec=5
+User=root
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=128M
+TasksMax=24
+InaccessiblePaths=-/opt/delamark-whatsapp -/opt/area-vip -/var/lib/delamark-access-admin-vip
+[Install]
+WantedBy=multi-user.target

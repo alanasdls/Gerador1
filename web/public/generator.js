@@ -1,3 +1,4 @@
+import {generateNumbers} from './generator-core.mjs';
 const GROUPS=[
 [1,'Avestruz','🐦',['01','02','03','04']],[2,'Águia','🦅',['05','06','07','08']],[3,'Burro','🐴',['09','10','11','12']],[4,'Borboleta','🦋',['13','14','15','16']],[5,'Cachorro','🐕',['17','18','19','20']],[6,'Cabra','🐐',['21','22','23','24']],[7,'Carneiro','🐏',['25','26','27','28']],[8,'Camelo','🐫',['29','30','31','32']],[9,'Cobra','🐍',['33','34','35','36']],[10,'Coelho','🐇',['37','38','39','40']],[11,'Cavalo','🐎',['41','42','43','44']],[12,'Elefante','🐘',['45','46','47','48']],[13,'Galo','🐓',['49','50','51','52']],[14,'Gato','🐈',['53','54','55','56']],[15,'Jacaré','🐊',['57','58','59','60']],[16,'Leão','🦁',['61','62','63','64']],[17,'Macaco','🐒',['65','66','67','68']],[18,'Porco','🐖',['69','70','71','72']],[19,'Pavão','🦚',['73','74','75','76']],[20,'Peru','🦃',['77','78','79','80']],[21,'Touro','🐂',['81','82','83','84']],[22,'Tigre','🐅',['85','86','87','88']],[23,'Urso','🐻',['89','90','91','92']],[24,'Veado','🦌',['93','94','95','96']],[25,'Vaca','🐄',['97','98','99','00']]
 ].map(([id,name,emoji,tens])=>({id,name,emoji,tens}));
@@ -5,6 +6,7 @@ const GROUPS=[
 const $=selector=>document.querySelector(selector);
 let selected=new Set();
 let current=[];
+let generationMode='normal';
 
 function rand(max){
   if(window.crypto?.getRandomValues){
@@ -38,24 +40,13 @@ function renderGroups(){
 function updateUI(){
   renderGroups();
   $('#selectionCounter').textContent=`${selected.size}/5`;
-  $('#totalThousands').textContent=`${selected.size*4} milhares`;
+  $('#totalThousands').textContent=selected.size?`${$('#generatorQty').value} milhares`:'Selecione seus bichos';
   $('#generateSelected').disabled=!selected.size;
 }
 
 function buildSelected(){
-  return [...selected].sort((a,b)=>a-b).map(id=>{
-    const group=GROUPS[id-1];
-    return {...group,numbers:group.tens.map(milharForTen)};
-  });
-}
-function buildDry(){return GROUPS.map(group=>({...group,numbers:[milharForTen(group.tens[rand(4)])],dry:true}));}
-function buildClosed(){
-  const prefixes=['00','12','23','34','45','56','67','78','89','91'];
-  return GROUPS.map(group=>({
-    ...group,
-    numbers:prefixes.flatMap(prefix=>group.tens.map(ten=>prefix+ten)),
-    closed:true
-  }));
+  const values=generateNumbers([...selected],generationMode,Number($('#generatorQty').value),rand);
+  return [...selected].sort((a,b)=>a-b).map(id=>({...GROUPS[id-1],numbers:values.filter(value=>GROUPS[id-1].tens.includes(value.slice(-2)))})).filter(group=>group.numbers.length);
 }
 
 function showResults(title,data){
@@ -210,9 +201,18 @@ function openExternal(url){
   if(!popup){window.location.assign(url);}
 }
 
-$('#generateSelected').addEventListener('click',()=>showResults('Palpites selecionados',buildSelected()));
-$('#dryShot').addEventListener('click',()=>showResults('Tiro seco',buildDry()));
-$('#closedAnimal').addEventListener('click',()=>showResults('Bicho fechado',buildClosed()));
+const modeNames={normal:'Normal',dry:'Tiro seco',closed:'Bicho fechado'};
+$('#generateSelected').addEventListener('click',()=>{try{showResults(modeNames[generationMode],buildSelected());}catch(e){toast(e.message);}});
+document.querySelectorAll('[data-generator-mode]').forEach(button=>button.addEventListener('click',()=>{
+ generationMode=button.dataset.generatorMode;
+ document.querySelectorAll('[data-generator-mode]').forEach(b=>{b.classList.toggle('active',b===button);b.setAttribute('aria-pressed',String(b===button));});
+ $('#modeHint').textContent=generationMode==='dry'?'Uma dezena é sorteada por bicho selecionado para formar as milhares.':'Usa as quatro dezenas de cada bicho selecionado, sem repetir milhares.';
+}));
+$('#generatorQty').addEventListener('input',()=>{const quantity=Number($('#generatorQty').value);if(Number.isInteger(quantity)&&quantity>=1&&quantity<=100)updateUI();});
+window.addEventListener('rebeca:generation',event=>{
+ const {title,count}=event.detail||{};
+ if(typeof title==='string'&&title.length<=80&&Number.isInteger(count)&&count>0&&count<=100)saveHistory(title,[{numbers:Array(count).fill('')}]);
+});
 
 $('#copyBtn').addEventListener('click',async()=>{
   const text=formatText();
