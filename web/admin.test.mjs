@@ -44,6 +44,8 @@ test('admin login, pagination, name/phone search, expiry and logout enforce serv
   data=await (await worker.fetch(request('/api/admin/clientes?q=11%2099999-9999',undefined,cookie),env)).json();assert.equal(data.filtered,1);
   insert.run('name-digits','Outro nome','5511934000000',101,'test');
   data=await (await worker.fetch(request('/api/admin/clientes?q=Pessoa%2034',undefined,cookie),env)).json();assert.equal(data.filtered,1);assert.equal(data.customers[0].name,'Pessoa 34');
+  const long='Nome de busca longo com espaços e acentos que não existe nesta lista'.slice(0,80);
+  const longResponse=await worker.fetch(request('/api/admin/clientes?q='+encodeURIComponent(long),undefined,cookie),env);assert.equal(longResponse.status,200);assert.equal((await longResponse.json()).filtered,0);
   assert.equal((await worker.fetch(request('/api/admin/clientes?pagina=-1',undefined,cookie),env)).status,400);
   await worker.fetch(request('/api/admin/sair',{},cookie),env);assert.equal((await worker.fetch(request('/api/admin/clientes',undefined,cookie),env)).status,401);
   assert.equal((await worker.fetch(request('/api/admin/entrar',{phone:ADMIN_PHONE,password:'wrong-password-long'}),env)).status,401);

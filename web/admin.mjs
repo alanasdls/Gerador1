@@ -44,11 +44,12 @@ export async function adminApi(req,env,url){
   if(!await adminSession(req,env))return reply({error:'Acesso restrito ao administrador.'},401);
   const q=(url.searchParams.get('q')||'').trim().slice(0,80),page=Number(url.searchParams.get('pagina')||'1');
   if(!Number.isSafeInteger(page)||page<1||page>100000)return reply({error:'Página inválida.'},400);
-  const escape=value=>value.replace(/[\\%_]/g,'\\$&'),digits=/^[\d\s()+.-]+$/.test(q)?q.replace(/\D/g,''):'',params=[q,'%'+escape(q)+'%',digits,'%'+digits+'%'];
-  const where="(?1='' OR name LIKE ?2 ESCAPE '\\' OR (?3<>'' AND phone LIKE ?4))";
+  const digits=/^[\d\s()+.-]+$/.test(q)?q.replace(/\D/g,''):'',params=[q,digits];
+  // D1 limits LIKE patterns to 50 bytes. Literal substring search also keeps % and _ literal.
+  const where="(?1='' OR instr(lower(name),lower(?1))>0 OR (?2<>'' AND instr(phone,?2)>0))";
   const {total}=await env.DB.prepare('SELECT count(*) AS total FROM customers').first();
   const {filtered}=await env.DB.prepare('SELECT count(*) AS filtered FROM customers WHERE '+where).bind(...params).first();
-  const {results}=await env.DB.prepare('SELECT name,phone FROM customers WHERE '+where+' ORDER BY created_at DESC,id DESC LIMIT 50 OFFSET ?5').bind(...params,(page-1)*50).all();
+  const {results}=await env.DB.prepare('SELECT name,phone FROM customers WHERE '+where+' ORDER BY created_at DESC,id DESC LIMIT 50 OFFSET ?3').bind(...params,(page-1)*50).all();
   return reply({ok:true,customers:results,total,filtered,page,pages:Math.max(1,Math.ceil(filtered/50))});
  }
  if(!['/api/admin/configurar','/api/admin/entrar','/api/admin/sair'].includes(path)||req.method!=='POST')return reply({error:'Página não encontrada.'},404);
