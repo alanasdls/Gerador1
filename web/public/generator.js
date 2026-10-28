@@ -228,16 +228,6 @@ $('#whatsappBtn').addEventListener('click',()=>{
   openExternal(`https://wa.me/5511974251066?text=${text}`);
 });
 
-$('#groupTipsBtn')?.addEventListener('click',event=>{
-  event.preventDefault();
-  openExternal('https://chat.whatsapp.com/EKCNVtICX00EgFwthqCWTk');
-});
-
-$('#sorte777Btn')?.addEventListener('click',event=>{
-  event.preventDefault();
-  openExternal('https://app.sortesete77.com?p=EgOCGZN5');
-});
-
 $('#clearHistory').addEventListener('click',()=>{
   try{localStorage.removeItem('milharHistory');}catch{}
   renderHistory();

@@ -1,5 +1,6 @@
 import {results,delays,analysis,bankFor,validDate} from './market.mjs';
 import {SIGN_INFO,keywordsFromText,researchInternet,generateThousands,horoscopeText,dreamText} from './research.mjs';
+import {ADMIN_PHONE,adminApi,revokeAdmin} from './admin.mjs';
 const COOKIE='__Host-rebeca_session',MAX_AGE=60*60*24*90;
 const encoder=new TextEncoder();
 const hash=async text=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',encoder.encode(text)))].map(n=>n.toString(16).padStart(2,'0')).join('');
@@ -33,6 +34,7 @@ export default {async fetch(request,env){
   const url=new URL(request.url),path=url.pathname;
   if(path.startsWith('/api/')){
    if(request.method==='POST'&&request.headers.get('origin')!==url.origin)return json({error:'Solicitação inválida.'},403);
+   if(path.startsWith('/api/admin/'))return await adminApi(request,env,url);
    if(path==='/api/cadastro'&&request.method==='POST'){
     if(!request.headers.get('content-type')?.startsWith('application/json'))return json({error:'Solicitação inválida.'},415);
     if(Number(request.headers.get('content-length')||0)>2048)return json({error:'Dados muito longos.'},413);
@@ -51,12 +53,14 @@ export default {async fetch(request,env){
     ];
     const old=tokenOf(request);if(old)statements.push(env.DB.prepare('DELETE FROM sessions WHERE token_hash=?1').bind(await hash(old)));
     await env.DB.batch(statements);
+    await revokeAdmin(request,env);
     return json({ok:true,name:value.name},200,{'set-cookie':cookie(token)});
    }
    if(path==='/api/session'&&request.method==='GET'){
-    const user=await session(request,env);return user?json({ok:true,user}):json({error:'Entre para continuar.'},401);
+    const user=await session(request,env);return user?json({ok:true,user:{...user,adminEligible:user.phone===ADMIN_PHONE}}):json({error:'Entre para continuar.'},401);
    }
    if(path==='/api/sair'&&request.method==='POST'){
+    await revokeAdmin(request,env);
     const token=tokenOf(request);if(token)await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?1').bind(await hash(token)).run();
     return json({ok:true},200,{'set-cookie':cookie('',0)});
    }
@@ -91,6 +95,7 @@ export default {async fetch(request,env){
    return json({error:'Página não encontrada.'},404);
   }
   if(!['GET','HEAD'].includes(request.method))return new Response(null,{status:405,headers});
+  if(path==='/administracao'||path==='/administracao/'||path==='/admin.html')return asset(request,env,'/admin.html',true);
   if(path==='/painel'||path==='/painel/'||path==='/app.html'){
    if(!await session(request,env))return new Response(null,{status:302,headers:{...headers,location:'/'}});
    return asset(request,env,'/app.html',true);
