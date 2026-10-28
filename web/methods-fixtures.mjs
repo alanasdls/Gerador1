@@ -1,6 +1,7 @@
 import {ANIMALS,daySP} from './public/methods-data.mjs';
 import {project} from './bridge/server.mjs';
 import {capitalTimes} from './bridge/capital.mjs';
+import {federalContests} from './bridge/federal-fixtures.mjs';
 export function capitalPayload(day){
  const ids={'10:00':32,'11:00':27,'13:00':31,'14:00':9,'16:00':28,'18:00':10,'20:00':30,'22:00':29};
  const serial=Math.floor(Date.parse(day+'T12:00:00Z')/86400000);
@@ -15,6 +16,7 @@ export function currentAnalysisFixture(){
 }
 export async function fixtureFetch(input,options={}){
  const url=new URL(input);
+ if(url.hostname==='servicebus2.caixa.gov.br'){const number=Number(url.pathname.split('/').at(-1));return Response.json(federalContests().find(r=>r.numero===(number||6112)));}
  if(url.hostname==='api-sorte777v3.alanasdls.workers.dev'&&url.pathname==='/fontes/trivo/capital')return Response.json(capitalPayload(url.searchParams.get('data')));
  if(url.hostname==='apidelamak.alanasdls.workers.dev')return Response.json({sucesso:true,extracoes:[{...sourceDraw,data_resultado:url.searchParams.get('data')||daySP()}]});
  if(url.hostname==='vip-api.delamarkpalpites.com')return Response.json(currentAnalysisFixture());
