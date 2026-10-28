@@ -44,22 +44,22 @@ export async function delays(key,fetcher=fetch){
 }
 export async function lineHistory(key,env,fetcher=fetch){
  bankFor(key);if(!env.REBECA_ANALYSIS_KEY)throw Error('HISTORY_CONFIG_MISSING');
- const r=await fetcher('https://vip-api.delamarkpalpites.com/rebeca/historico',{method:'POST',headers:{'content-type':'application/json','x-gateway-key':env.REBECA_ANALYSIS_KEY},body:JSON.stringify({banca:key}),redirect:'manual',signal:AbortSignal.timeout(10000)});
+ const r=await fetcher('https://vip-api.delamarkpalpites.com/rebeca/historico',{method:'POST',headers:{'content-type':'application/json','x-gateway-key':env.REBECA_ANALYSIS_KEY},body:JSON.stringify({banca:key}),redirect:'manual',signal:AbortSignal.timeout(20000)});
  if(!r.ok)throw Error('HISTORY_HTTP_'+r.status);
- const data=await r.json();if(!data.ok||data.data_referencia!==daySP()||!Array.isArray(data.ranking_linhas)||data.ranking_linhas.length!==5)throw Error('HISTORY_INVALID_RESPONSE');
+ const data=await r.json();if(!data.ok||data.modo!=='resultados_api'||data.data_referencia!==daySP()||!Array.isArray(data.ranking_linhas)||![0,5].includes(data.ranking_linhas.length)||!Array.isArray(data.extracoes_disponiveis)||!Array.isArray(data.avisos))throw Error('HISTORY_INVALID_RESPONSE');
  return data;
 }
 export async function analysis(key,env,fetcher=fetch){
- bankFor(key);const now=new Date();
- const [history,latest]=await Promise.allSettled([lineHistory(key,env,fetcher),results(key,'',fetcher)]);
- if(history.status==='rejected')console.warn('Rebeca history unavailable',key,/^HISTORY_[A-Z0-9_]+$/.test(history.reason?.message)?history.reason.message:history.reason?.name||'Error');
- const last=latest.status==='fulfilled'?latest.value.extracoes.at(-1):null;
+ bankFor(key);
+ const current=await lineHistory(key,env,fetcher);
+ const draws=current.extracoes_disponiveis.map(draw=>({data:draw.data,horario:draw.horario,codigo:draw.codigo,premios:[{posicao:1,milhar:draw.milhar_1_premio,...animal(draw.milhar_1_premio)}]}));
+ const last=draws.at(-1)||null;
  const number=last?.premios.find(p=>p.posicao===1)?.milhar.slice(-4);
- return {ok:true,nome:BANKS[key].name,data_referencia:daySP(now),consultado_em:now.toISOString(),
-  ranking_linhas:history.status==='fulfilled'?history.value.ranking_linhas:[],
-  historico_atualizado_em:history.status==='fulfilled'?history.value.historico_atualizado_em:null,
-  aviso_linhas:history.status==='rejected'?(key==='federal'?'O histórico de linhas da Federal ainda não está disponível nesta fonte.':'Não foi possível consultar as linhas agora. Tente atualizar.'):null,
-  extracoes:latest.status==='fulfilled'?latest.value.extracoes:[],
-  ultima_extracao:last,soma:number?sums(number,Number(daySP(now).slice(0,4))):[],
+ return {ok:true,modo:current.modo,nome:BANKS[key].name,data_referencia:current.data_referencia,consultado_em:current.consultado_em,
+  ranking_linhas:current.ranking_linhas,analise_atual:current.analise_atual,
+  historico_atualizado_em:current.historico_atualizado_em,avisos:current.avisos,
+  aviso_linhas:current.ranking_linhas.length?null:(key==='federal'?'O histórico de linhas da Federal ainda não está disponível nesta fonte.':'O histórico está sendo conferido. Tente atualizar em instantes.'),
+  extracoes:draws,
+  ultima_extracao:last,soma:number?sums(number,Number(current.data_referencia.slice(0,4))):[],
   aviso_soma:last?null:'Nenhum resultado recente disponível para calcular a soma.'};
 }
