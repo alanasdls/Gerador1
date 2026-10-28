@@ -1,4 +1,5 @@
 import {ANIMALS,EMOJI,BANKS,daySP,sums,animal} from './public/methods-data.mjs';
+import {capitalAnalysis,capitalResults} from './bridge/capital.mjs';
 export function bankFor(key){if(!Object.hasOwn(BANKS,key))throw Object.assign(Error('Escolha uma loteria válida.'),{status:400});return BANKS[key];}
 export function validDate(value){return /^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value+'T12:00:00Z'))&&new Date(value+'T12:00:00Z').toISOString().slice(0,10)===value;}
 export function normalizeResults(payload,key,date,now=new Date()){
@@ -21,6 +22,7 @@ export function normalizeResults(payload,key,date,now=new Date()){
 }
 export async function results(key,date,fetcher=fetch){
  const config=bankFor(key);if(date&&!validDate(date))throw Object.assign(Error('Informe uma data válida.'),{status:400});
+ if(key==='capital-v3')return normalizeResults(await capitalResults(date||daySP()),key,date);
  const url=new URL('https://apidelamak.alanasdls.workers.dev/resultados');url.searchParams.set('banca',config.api);if(date)url.searchParams.set('data',date);
  const r=await fetcher(url,{headers:{accept:'application/json'},signal:AbortSignal.timeout(10000),cf:{cacheTtl:30}});
  if(!r.ok)throw Error('Os resultados estão indisponíveis. Tente atualizar em instantes.');
@@ -37,7 +39,8 @@ export function parseDelays(html){
  return [...out.values()].sort((a,b)=>b.dias-a.dias||a.grupo-b.grupo);
 }
 export async function delays(key,fetcher=fetch){
- const config=bankFor(key),url=`https://bichocerto.com/atrasados/${config.delay}/`;
+ const config=bankFor(key);if(!config.delay)throw Object.assign(Error('Esta loteria está disponível em Linhas e somas e Resultados.'),{status:400});
+ const url=`https://bichocerto.com/atrasados/${config.delay}/`;
  const r=await fetcher(url,{headers:{accept:'text/html','user-agent':'Mozilla/5.0 Rebeca-Palpites'},signal:AbortSignal.timeout(10000),cf:{cacheTtl:120}});
  if(!r.ok)throw Error('Não foi possível consultar os atrasados. Tente novamente.');
  return {ok:true,nome:config.name,fonte:'Bicho Certo',fonte_url:url,consultado_em:new Date().toISOString(),itens:parseDelays(await r.text())};
@@ -51,7 +54,7 @@ export async function lineHistory(key,env,fetcher=fetch){
 }
 export async function analysis(key,env,fetcher=fetch){
  bankFor(key);
- const current=await lineHistory(key,env,fetcher);
+ const current=key==='capital-v3'?await capitalAnalysis():await lineHistory(key,env,fetcher);
  const draws=current.extracoes_disponiveis.map(draw=>({data:draw.data,horario:draw.horario,codigo:draw.codigo,premios:[{posicao:1,milhar:draw.milhar_1_premio,...animal(draw.milhar_1_premio)}]}));
  const last=draws.at(-1)||null;
  const number=last?.premios.find(p=>p.posicao===1)?.milhar.slice(-4);

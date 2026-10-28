@@ -15,6 +15,7 @@ Visitors register with name and Brazilian mobile number and immediately receive 
 - Delayed animals are parsed from Bicho Certo, requiring all 25 groups. These delays are in days, distinct from the extraction-based line ranking.
 - Dreams and horoscope reuse Delamark's symbolic reading and random 25-number generation, with public research from Personare, Astrolink and Astrocentro. Sign readings consult Astrolink directly. Dreams search through DuckDuckGo, with the public Personare dream guide and its actual article links as fallback. A general reading is labeled when no specific entry matches. Registration details are never sent to search. If sources are unavailable, the UI reports the failure instead of inventing sources.
 - The global source currently has no separate Federal line history; the page explicitly reports that limitation. An empty Federal result day is not replaced with a Rio result.
+- Capital (`capital-v3`) is available in Linhas e somas and Resultados. Its 10h/11h/13h/14h/16h/18h/20h/22h V3 source (no 11h on Sundays) is distinct from LT Capital (:40). `bridge/capital.mjs` runs inside the authenticated Worker and reconstructs delays from consecutive V3 first prizes, scanning at most 45 previous days until all 25 animals have appeared. Missing draws suppress the ranking. Complete historical days use a 24-hour memory/Cloudflare cache; the current day is fetched each time. The existing five-minute visible-screen interval applies. There is no separate day-delay source for Capital, so it is not offered under Bichos atrasados. No VPS update, database write, secret or migration is required. Worker rollback before Capital: `b6d7c5d0-e464-4d46-88d1-9393aaa98c03`.
 - The pulling table is rendered as searchable text, using the supplied Delamark associations without displaying his branding.
 
 ## Data and access
@@ -44,6 +45,7 @@ Node 24+ provides the SQLite test adapter. It executes the real migration and SQ
 ```sh
 node --test web/worker.test.mjs web/methods.test.mjs web/admin.test.mjs
 node --test web/bridge/core.test.mjs
+node --test web/bridge/capital.test.mjs
 node web/browser-check.mjs /path/to/installed/playwright-core
 node web/analysis-refresh.browser.mjs /path/to/installed/playwright-core
 wrangler deploy --dry-run --config web/wrangler.jsonc

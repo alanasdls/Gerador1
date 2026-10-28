@@ -49,6 +49,10 @@ try{
  mode='hang';await page.clock.runFor(300000);await page.waitForFunction(()=>document.querySelector('#analysisForm').getAttribute('aria-busy')==='true');await page.clock.runFor(25000);await page.waitForFunction(()=>document.querySelector('#analysisStatus').textContent.includes('consulta anterior'));
  mode='ok';await page.clock.runFor(275000);await page.waitForFunction(()=>document.querySelector('#analysisStatus').textContent.includes('a cada 5 minutos'));
  console.log('PASS: manual refresh works immediately and resets the timer; outages/timeouts retain labeled old data and recover at five minutes.');
+ await page.locator('#analysisBank').selectOption('capital-v3');await page.waitForSelector('.leading-line');await page.waitForFunction(()=>document.querySelector('#analysisForm').getAttribute('aria-busy')==='false');
+ assert.match(await page.locator('.leading-line').textContent(),/às \d{2}:00/);assert.equal(await page.locator('#delaysBank option[value="capital-v3"]').count(),0);
+ await menu('resultados');await page.locator('#resultsBank').selectOption('capital-v3');await page.waitForFunction(()=>document.querySelector('#resultsForm').getAttribute('aria-busy')==='false');assert.ok(await page.locator('.draw-card').count());assert.match(await page.locator('.draw-card').first().textContent(),/\d{2}:00/);
+ await menu('analises');console.log('PASS: Capital V3 selector reaches the real Worker calculation and results, with separate source history.');
  for(const width of [320,390,768,1440]){await page.setViewportSize({width,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);}
  assert.deepEqual(errors,[]);console.log('PASS: four viewport widths and no uncaught browser errors.');
 }finally{await browser?.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));env.sqlite.close();}

@@ -1,6 +1,7 @@
 // Source draw IDs use the same canonical times as the historical collector.
-const ROUTES={'look-goias':'look','rio-federal':'rio-federal',bahia:'bahia','sao-paulo':'sao-paulo',nacional:'nacional',lotep:'lotep'};
+const ROUTES={'look-goias':'look','rio-federal':'rio-federal',bahia:'bahia','sao-paulo':'sao-paulo',nacional:'nacional',lotep:'lotep','capital-v3':'capital'};
 export const TIMES=Object.freeze({
+ 'capital-v3':{32:'10:00',27:'11:00',31:'13:00',9:'14:00',28:'16:00',10:'18:00',30:'20:00',29:'22:00'},
  'look-goias':{118:'07:20',104:'09:20',22:'11:20',23:'14:20',24:'16:20',25:'18:20',26:'21:20',119:'23:20'},
  'rio-federal':{120:'09:20',11:'11:00',12:'14:20',13:'16:00',16:'21:20'},
  bahia:{85:'10:00',86:'12:00',87:'15:00',88:'19:00',89:'21:00'},

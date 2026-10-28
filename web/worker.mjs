@@ -71,6 +71,7 @@ export default {async fetch(request,env){
     if(!isResearch){
      const bank=url.searchParams.get('banca')||'look-goias',date=url.searchParams.get('data')||'';
      try{bankFor(bank);}catch{return json({error:'Escolha uma loteria válida.'},400);}
+     if(method==='atrasados'&&!bankFor(bank).delay)return json({error:'Esta loteria está disponível em Linhas e somas e Resultados.'},400);
      if(date&&!validDate(date))return json({error:'Informe uma data válida.'},400);
      try{return json(method==='resultados'?await results(bank,date):method==='atrasados'?await delays(bank):await analysis(bank,env));}
      catch{return json({error:'A consulta está temporariamente indisponível. Tente atualizar em instantes.'},503);}

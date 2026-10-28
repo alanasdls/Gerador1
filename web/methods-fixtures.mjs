@@ -1,5 +1,11 @@
 import {ANIMALS,daySP} from './public/methods-data.mjs';
 import {project} from './bridge/server.mjs';
+import {capitalTimes} from './bridge/capital.mjs';
+export function capitalPayload(day){
+ const ids={'10:00':32,'11:00':27,'13:00':31,'14:00':9,'16:00':28,'18:00':10,'20:00':30,'22:00':29};
+ const serial=Math.floor(Date.parse(day+'T12:00:00Z')/86400000);
+ return {ok:true,loteria_canonica:'CAPITAL',extracoes:capitalTimes(day).map((time,i)=>{const group=(serial*8+i)%25+1;return {loteria_id:ids[time],data_resultado:day,premios:[{posicao:1,milhar:String(group*4%100).padStart(4,'0'),grupo:group},{posicao:7,milhar:'0097',grupo:25}]};})};
+}
 export const rows=Array.from({length:25},(_,i)=>({grupo:i+1,ultima_aparicao_data:daySP(),extracoes_sem_sair:Math.floor(i/5)===2?8:i%3,atualizado_em:new Date().toISOString()}));
 export const sourceDraw={codigo:'H0001',nome:'Look 00:01',data_resultado:daySP(),horario:'00:01',premios:['5357','7813','4140','4931','0935','3176','854'].map((milhar,i)=>({posicao:i+1,milhar}))};
 export const delayHtml=ANIMALS.map((name,i)=>`<p>${i+1}º ${name} saiu a ${i} dias no milhar</p>`).join('');
@@ -9,6 +15,7 @@ export function currentAnalysisFixture(){
 }
 export async function fixtureFetch(input,options={}){
  const url=new URL(input);
+ if(url.hostname==='api-sorte777v3.alanasdls.workers.dev'&&url.pathname==='/fontes/trivo/capital')return Response.json(capitalPayload(url.searchParams.get('data')));
  if(url.hostname==='apidelamak.alanasdls.workers.dev')return Response.json({sucesso:true,extracoes:[{...sourceDraw,data_resultado:url.searchParams.get('data')||daySP()}]});
  if(url.hostname==='vip-api.delamarkpalpites.com')return Response.json(currentAnalysisFixture());
  if(url.hostname==='bichocerto.com')return new Response(delayHtml);
