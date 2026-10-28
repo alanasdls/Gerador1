@@ -120,6 +120,16 @@ test('Capital V3 runs through authenticated analysis and results without LT Capi
  }finally{globalThis.fetch=original;env.sqlite.close();}
 });
 
+test('Federal authenticated routes use official contests and keep the original date without needing the VPS',async()=>{
+ const env=testEnvironment(),original=globalThis.fetch,origin='https://rebeca.test';globalThis.fetch=async(input,options)=>{assert.equal(new URL(input).hostname,'servicebus2.caixa.gov.br');return fixtureFetch(input,options);};
+ try{
+  assert.equal((await worker.fetch(new Request(origin+'/api/metodos/analises?banca=federal'),env)).status,401);
+  const login=await worker.fetch(new Request(origin+'/api/cadastro',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify({name:'Teste Federal',phone:'11912345678'})}),env),cookie=login.headers.get('set-cookie').split(';')[0];
+  const analysis=await worker.fetch(new Request(origin+'/api/metodos/analises?banca=federal',{headers:{cookie}}),env),data=await analysis.json();assert.equal(analysis.status,200);assert.equal(data.ranking_linhas.length,5);assert.equal(data.analise_atual.resultado_base.concurso,6112);assert.equal(data.ultima_extracao.data,'2026-10-24');assert.equal(data.ultima_extracao.concurso,6112);
+  const response=await worker.fetch(new Request(origin+'/api/metodos/resultados?banca=federal&data=2026-10-24',{headers:{cookie}}),env),results=await response.json();assert.equal(response.status,200);assert.equal(results.extracoes[0].premios.length,5);assert.equal(results.extracoes[0].premios[0].milhar,'4383');assert.equal(results.extracoes[0].concurso,6112);
+ }finally{globalThis.fetch=original;env.sqlite.close();}
+});
+
 test('research resolves relative search links and uses real sources when search is unavailable',async()=>{
  const original=globalThis.fetch;
  try{

@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { readFileSync,readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import {federalStore} from './bridge/federal-fixtures.mjs';
 
 // Exercise the real migration and SQL. Only the D1 transport is adapted.
 export function testEnvironment() {
@@ -34,5 +35,5 @@ export function testEnvironment() {
     try {return new Response(readFileSync(filename),{headers:{'content-type':mime[path.extname(filename)]||'application/octet-stream'}});}
     catch {return new Response(null,{status:404});}
   }};
-  return {DB,ASSETS,sqlite};
+  return {DB,ASSETS,sqlite,FEDERAL_HISTORY:federalStore()};
 }

@@ -1,5 +1,6 @@
 import {ANIMALS,EMOJI,BANKS,daySP,sums,animal} from './public/methods-data.mjs';
 import {capitalAnalysis,capitalResults} from './bridge/capital.mjs';
+import {federalAnalysis,federalResults} from './bridge/federal.mjs';
 export function bankFor(key){if(!Object.hasOwn(BANKS,key))throw Object.assign(Error('Escolha uma loteria válida.'),{status:400});return BANKS[key];}
 export function validDate(value){return /^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value+'T12:00:00Z'))&&new Date(value+'T12:00:00Z').toISOString().slice(0,10)===value;}
 export function normalizeResults(payload,key,date,now=new Date()){
@@ -9,20 +10,22 @@ export function normalizeResults(payload,key,date,now=new Date()){
   return key==='federal'?federal:key==='rio'?!federal:true;
  }).flatMap(row=>{
   const day=String(row.data_resultado||payload.data_resultado||'').slice(0,10),time=String(row.horario||'');
-  if(!validDate(day)||(date&&day!==date)||day>today||!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)||(day===today&&time>clock))return [];
+  const verifiedContest=key==='federal'&&Number.isSafeInteger(row.concurso)&&row.concurso>0;
+  if(!validDate(day)||(date&&day!==date)||day>today||(!verifiedContest&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(time))||(day===today&&time>clock))return [];
   const prizes=(Array.isArray(row.premios)?row.premios:[]).flatMap(prize=>{
    const position=Number(prize.posicao),number=String(prize.milhar??'');
    if(!Number.isInteger(position)||position<1||position>(key==='federal'?5:7)||!(position===7?/^\d{3}$/ : /^\d{4,5}$/).test(number))return [];
    return [{posicao:position,milhar:number,...animal(number)}];
   }).sort((a,b)=>a.posicao-b.posicao);
   if(!prizes.some(p=>p.posicao===1))return [];
-  return [{codigo:String(row.codigo||time),data:day,horario:time,premios:prizes}];
+  return [{codigo:String(row.codigo||time),data:day,horario:time,...(verifiedContest?{concurso:row.concurso}:{}),premios:prizes}];
  }).sort((a,b)=>(a.data+a.horario).localeCompare(b.data+b.horario));
  return {ok:true,nome:BANKS[key].name,data:date||draws.at(-1)?.data||today,consultado_em:now.toISOString(),extracoes:draws};
 }
-export async function results(key,date,fetcher=fetch){
+export async function results(key,date,fetcher=fetch,env={}){
  const config=bankFor(key);if(date&&!validDate(date))throw Object.assign(Error('Informe uma data válida.'),{status:400});
  if(key==='capital-v3')return normalizeResults(await capitalResults(date||daySP()),key,date);
+ if(key==='federal')return normalizeResults(await federalResults(env.FEDERAL_HISTORY,date),key,date);
  const url=new URL('https://apidelamak.alanasdls.workers.dev/resultados');url.searchParams.set('banca',config.api);if(date)url.searchParams.set('data',date);
  const r=await fetcher(url,{headers:{accept:'application/json'},signal:AbortSignal.timeout(10000),cf:{cacheTtl:30}});
  if(!r.ok)throw Error('Os resultados estão indisponíveis. Tente atualizar em instantes.');
@@ -54,14 +57,14 @@ export async function lineHistory(key,env,fetcher=fetch){
 }
 export async function analysis(key,env,fetcher=fetch){
  bankFor(key);
- const current=key==='capital-v3'?await capitalAnalysis():await lineHistory(key,env,fetcher);
- const draws=current.extracoes_disponiveis.map(draw=>({data:draw.data,horario:draw.horario,codigo:draw.codigo,premios:[{posicao:1,milhar:draw.milhar_1_premio,...animal(draw.milhar_1_premio)}]}));
+ const current=key==='capital-v3'?await capitalAnalysis():key==='federal'?await federalAnalysis(env.FEDERAL_HISTORY):await lineHistory(key,env,fetcher);
+ const draws=current.extracoes_disponiveis.map(draw=>({data:draw.data,horario:draw.horario,codigo:draw.codigo,...(draw.concurso?{concurso:draw.concurso}:{}),premios:[{posicao:1,milhar:draw.milhar_1_premio,...animal(draw.milhar_1_premio)}]}));
  const last=draws.at(-1)||null;
  const number=last?.premios.find(p=>p.posicao===1)?.milhar.slice(-4);
  return {ok:true,modo:current.modo,nome:BANKS[key].name,data_referencia:current.data_referencia,consultado_em:current.consultado_em,
   ranking_linhas:current.ranking_linhas,analise_atual:current.analise_atual,
   historico_atualizado_em:current.historico_atualizado_em,avisos:current.avisos,
-  aviso_linhas:current.ranking_linhas.length?null:(key==='federal'?'O histórico de linhas da Federal ainda não está disponível nesta fonte.':'O histórico está sendo conferido. Tente atualizar em instantes.'),
+  aviso_linhas:current.ranking_linhas.length?null:'O histórico está sendo conferido. Tente atualizar em instantes.',
   extracoes:draws,
   ultima_extracao:last,soma:number?sums(number,Number(current.data_referencia.slice(0,4))):[],
   aviso_soma:last?null:'Nenhum resultado recente disponível para calcular a soma.'};
