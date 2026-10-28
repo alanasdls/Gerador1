@@ -7,6 +7,7 @@ export const BANKS={
  'sao-paulo':{name:'São Paulo',api:'sao-paulo',state:'sao-paulo',delay:'sp'},
  nacional:{name:'Nacional',api:'nacional',state:'nacional',delay:'ln'},
  lotep:{name:'Lotep',api:'lotep',state:'lotep',delay:'pb'},
+ 'capital-v3':{name:'Capital',api:'capital-v3',delay:null},
  federal:{name:'Federal',api:'rio-federal',state:'federal-caixa',delay:'fd'}
 };
 export const SIGNS=[['aries','Áries','♈'],['touro','Touro','♉'],['gemeos','Gêmeos','♊'],['cancer','Câncer','♋'],['leao','Leão','♌'],['virgem','Virgem','♍'],['libra','Libra','♎'],['escorpiao','Escorpião','♏'],['sagitario','Sagitário','♐'],['capricornio','Capricórnio','♑'],['aquario','Aquário','♒'],['peixes','Peixes','♓']];

@@ -108,6 +108,18 @@ test('panel exposes all requested tools and excludes the cross',()=>{
  assert.doesNotMatch(html,/cruz/i);
 });
 
+test('Capital V3 runs through authenticated analysis and results without LT Capital or VPS history',async()=>{
+ const env=testEnvironment(),original=globalThis.fetch,origin='https://rebeca.test',requests=[];
+ globalThis.fetch=async(input,options)=>{requests.push(String(input));assert.equal(new URL(input).pathname,'/fontes/trivo/capital');return fixtureFetch(input,options);};
+ try{
+  const path='/api/metodos/analises?banca=capital-v3';assert.equal((await worker.fetch(new Request(origin+path),env)).status,401);assert.equal(requests.length,0);
+  const registered=await worker.fetch(new Request(origin+'/api/cadastro',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify({name:'Teste Capital',phone:'11912345678'})}),env),cookie=registered.headers.get('set-cookie').split(';')[0];
+  const response=await worker.fetch(new Request(origin+path,{headers:{cookie}}),env),data=await response.json();assert.equal(response.status,200);assert.equal(data.nome,'Capital');assert.equal(data.ranking_linhas.length,5);assert.equal(data.ultima_extracao.premios[0].milhar,data.analise_atual.resultado_base.milhar_1_premio);
+  const results=await worker.fetch(new Request(origin+'/api/metodos/resultados?banca=capital-v3&data=2026-10-27',{headers:{cookie}}),env),list=await results.json();assert.equal(results.status,200);assert.equal(list.extracoes.length,8);assert.equal(list.extracoes[0].premios.at(-1).milhar,'097');
+  assert.equal((await worker.fetch(new Request(origin+'/api/metodos/atrasados?banca=capital-v3',{headers:{cookie}}),env)).status,400);
+ }finally{globalThis.fetch=original;env.sqlite.close();}
+});
+
 test('research resolves relative search links and uses real sources when search is unavailable',async()=>{
  const original=globalThis.fetch;
  try{

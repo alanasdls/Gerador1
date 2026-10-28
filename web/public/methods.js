@@ -1,4 +1,4 @@
-import {ANIMALS,EMOJI,BANKS,SIGNS,PULLS,pad,daySP,sums} from './methods-data.mjs';
+import {ANIMALS,EMOJI,BANKS,SIGNS,PULLS,pad,daySP,sums} from './methods-data.mjs?v=capital-20261028';
 const $=id=>document.getElementById(id),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dateText=value=>/^\d{4}-\d{2}-\d{2}$/.test(value||'')?value.split('-').reverse().join('/'):'';
 const timeText=value=>value&&Number.isFinite(Date.parse(value))?new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'}).format(new Date(value)):'';
@@ -18,7 +18,7 @@ function busy(prefix,value){const form=$(prefix+'Form');form.querySelector('butt
 async function api(path,options={}){const r=await fetch('/api/metodos/'+path,{cache:'no-store',...options});if(r.status===401){location.replace('/');throw Object.assign(Error('Entre novamente para continuar.'),{status:401});}let data;try{data=await r.json();}catch{throw Error('Não foi possível consultar agora.');}if(!r.ok||!data.ok)throw Object.assign(Error(data.error||'Não foi possível consultar agora.'),{status:r.status});return data;}
 async function copy(text){try{await navigator.clipboard.writeText(text);const el=$('toast');el.textContent='Copiado';el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2000);}catch{const el=$('toast');el.textContent='Não foi possível copiar. Tente novamente.';el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2200);}}
 function pickGrid(picks){return '<div class="method-picks">'+picks.map(p=>`<div class="method-pick"><strong>${esc(p.milhar)}</strong><small>${esc(p.emoji)} ${esc(p.name||p.animal)}</small></div>`).join('')+'</div>';}
-document.querySelectorAll('[data-banks]').forEach(select=>{select.innerHTML=Object.entries(BANKS).map(([key,b])=>`<option value="${key}">${b.name}</option>`).join('');});
+document.querySelectorAll('[data-banks]').forEach(select=>{select.innerHTML=Object.entries(BANKS).filter(([,b])=>select.id!=='delaysBank'||b.delay).map(([key,b])=>`<option value="${key}">${b.name}</option>`).join('');});
 $('resultsDate').value=daySP();$('resultsDate').max=daySP();
 $('signSelect').insertAdjacentHTML('beforeend',SIGNS.map(([key,name,emoji])=>`<option value="${key}">${emoji} ${name}</option>`).join(''));
 
