@@ -4,9 +4,9 @@ import {createServer} from 'node:http';
 import {readFileSync} from 'node:fs';
 import {generateNumbers} from './public/generator-core.mjs';
 import {PULLS,daySP,sums,animal} from './public/methods-data.mjs';
-import {parseDelays,normalizeResults,validDate,lineHistory} from './market.mjs';
+import {parseDelays,normalizeResults,validDate,lineHistory,analysis} from './market.mjs';
 import {handler,project} from './bridge/server.mjs';
-import {rows,sourceDraw,delayHtml,fixtureFetch} from './methods-fixtures.mjs';
+import {rows,sourceDraw,delayHtml,fixtureFetch,currentAnalysisFixture} from './methods-fixtures.mjs';
 import worker from './worker.mjs';
 import {testEnvironment} from './test-support.mjs';
 import {researchInternet,dreamText} from './research.mjs';
@@ -55,14 +55,25 @@ test('delay parser requires all 25 actual animals and rejects incomplete source 
 });
 test('history bridge requires its dedicated key and only reads whitelisted lottery history',async()=>{
  const key='synthetic-key-that-is-long-enough',read=[];
- const server=createServer(handler(key,async lottery=>{read.push(lottery);return rows;}));
+ const marker={id:'test-draw',data_resultado:daySP(),horario:'00:01',processado_em:new Date().toISOString()};
+ const baseline=rows.map(r=>({...r,ultima_aparicao_horario:'00:01',atualizado_em:marker.processado_em}));
+ const server=createServer(handler(key,async(table,params)=>{read.push([table,params.loteria_codigo]);return table==='delayed_animal_state'?baseline:table==='delayed_processed_draws'?[marker]:[{horario:'07:20'}];},async()=>[{data:daySP(),horario:'00:01',codigo:'H0001',milhar_1_premio:'0001',grupo:1}]));
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const url=`http://127.0.0.1:${server.address().port}/rebeca/historico`;
  try{
   const post=(body,k=key)=>fetch(url,{method:'POST',headers:{'x-gateway-key':k},body:JSON.stringify(body)});
   assert.equal((await post({banca:'rio'},'wrong')).status,403);assert.equal(read.length,0);
   for(const body of [{banca:'unknown'},{banca:'rio',tenant_id:'mark'},null])assert.equal((await post(body)).status,400);
-  const r=await post({banca:'rio'});assert.equal(r.status,200);assert.equal((await r.json()).ranking_linhas.length,5);assert.deepEqual(read,['rio-federal']);
+  const r=await post({banca:'rio'});assert.equal(r.status,200);assert.equal((await r.json()).ranking_linhas.length,5);
+  assert.ok(read.every(([table,lottery])=>['delayed_animal_state','delayed_processed_draws','result_lottery_times'].includes(table)&&lottery==='eq.rio-federal'));
  }finally{await new Promise(resolve=>server.close(resolve));}
+});
+
+test('analysis uses a single API projection for line and sums and rejects old-day data',async()=>{
+ let calls=0;const fixture=currentAnalysisFixture();
+ const data=await analysis('look-goias',{REBECA_ANALYSIS_KEY:'synthetic'},async(url)=>{calls++;assert.match(url,/\/rebeca\/historico$/);return Response.json(fixture);});
+ assert.equal(calls,1);assert.equal(data.modo,'resultados_api');assert.equal(data.ultima_extracao.premios[0].milhar,data.analise_atual.resultado_base.milhar_1_premio);
+ assert.deepEqual(data.soma.map(p=>p.milhar),sums('5572',Number(daySP().slice(0,4))).map(p=>p.milhar));
+ await assert.rejects(analysis('look-goias',{REBECA_ANALYSIS_KEY:'synthetic'},async()=>Response.json({...fixture,data_referencia:'2000-01-01'})),/INVALID_RESPONSE/);
 });
 test('methods require a session, preserve origin checks, and do not expose a cross route',async()=>{
  const env=testEnvironment(),origin='https://rebeca.test';

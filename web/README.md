@@ -8,8 +8,10 @@ Visitors register with name and Brazilian mobile number and immediately receive 
 
 - All `/api/metodos/*` routes require the existing session. Research POSTs also require same-origin requests and are limited to 10 per connection per minute using a hashed bucket.
 - Results come from the same public result API as Delamark. Dates, times and Federal/Rio separation are validated; the seventh prize remains three digits.
-- Lines use the shared lottery history (`delayed_animal_state`) through the dedicated authenticated `bridge` service, not Mark's publications. The delay of a line is the minimum extraction delay of its five groups, measured in the first prize. Sums display the exact source draw separately.
-- The bridge runs independently on loopback port 8801; it accepts only a fixed lottery list and returns five aggregate lines. It exposes no credentials, customers, tenant data or database query capability. `REBECA_ANALYSIS_KEY` is a Worker secret; `/etc/rebeca-methods/config.json` holds the matching VPS key. Existing database credentials remain on the VPS.
+- Lines and sums use the same latest first prize from the results API, independently of WhatsApp sending. The dedicated bridge reads consistent historical counters and their completion marker, then applies only newer API results in memory. Repeated requests and the collector catching up do not count the same draw twice. A line's delay is the minimum extraction delay of its five groups, measured in the first prize. The screen identifies the source result and next draw.
+- Automatic analysis refresh runs every **five minutes**, only while the analysis view and browser tab are visible. Returning early does not make another request. Returning after five minutes refreshes once. Manual refresh and selecting another lottery fetch immediately and restart the five-minute timer. Errors/timeouts preserve explicitly labeled previous analysis and retry on the same interval; a bank change or authentication failure clears it. Historical sum selection stays selected while the current line advances.
+- The bridge runs independently on loopback port 8801 and accepts only a fixed lottery list. It reads `delayed_animal_state`, `delayed_processed_draws`, `result_lottery_times` and fixed API endpoints. Concurrent requests for one bank share a calculation. It exposes no credentials, customers, tenant data or database query capability. `REBECA_ANALYSIS_KEY` is a Worker secret; `/etc/rebeca-methods/config.json` holds the matching VPS key. Existing database credentials remain on the VPS. No database writes or message sends occur during analysis.
+- `bridge/core.mjs` and `bridge/source.mjs` are pinned copies of the validated Delamark calculation from commit `6e63975`, deployed separately for Rebeca. Incomplete/concurrently updating history or a conflicting baseline suppresses the line instead of showing an incorrect counter. Date rollover is handled in São Paulo time.
 - Delayed animals are parsed from Bicho Certo, requiring all 25 groups. These delays are in days, distinct from the extraction-based line ranking.
 - Dreams and horoscope reuse Delamark's symbolic reading and random 25-number generation, with public research from Personare, Astrolink and Astrocentro. Sign readings consult Astrolink directly. Dreams search through DuckDuckGo, with the public Personare dream guide and its actual article links as fallback. A general reading is labeled when no specific entry matches. Registration details are never sent to search. If sources are unavailable, the UI reports the failure instead of inventing sources.
 - The global source currently has no separate Federal line history; the page explicitly reports that limitation. An empty Federal result day is not replaced with a Rio result.
@@ -41,7 +43,9 @@ Node 24+ provides the SQLite test adapter. It executes the real migration and SQ
 
 ```sh
 node --test web/worker.test.mjs web/methods.test.mjs web/admin.test.mjs
+node --test web/bridge/core.test.mjs
 node web/browser-check.mjs /path/to/installed/playwright-core
+node web/analysis-refresh.browser.mjs /path/to/installed/playwright-core
 wrangler deploy --dry-run --config web/wrangler.jsonc
 ```
 
@@ -57,6 +61,8 @@ wrangler deploy --config web/wrangler.jsonc
 ```
 
 The existing Cloudflare domain route remains `geradoresdepalpites.com.br`. The configuration retains existing variables. The methods change requires no migration or customer-data modification. Install the isolated bridge and set `REBECA_ANALYSIS_KEY` before publishing the Worker. The guarded `bridge/install.py` is for the initial installation only; it backs up the Nginx config and adds an exact `/rebeca/historico` route. This change does not restart or modify the Caim/Mark billing or WhatsApp services.
+
+For the API-analysis update, deploy `bridge/core.mjs`, `bridge/source.mjs` and `bridge/server.mjs` into `/opt/rebeca-methods`, back up the previous server and restart only `rebeca-methods`. No new secret is required. `bridge/preview.mjs` validates public analysis values before activation. Worker rollback version: `8eca736c-810d-4404-bb4d-dc911e5b7f6e`; service backup: `/opt/rebeca-methods/releases/before-api-analysis-20261028`. Caim and Delamark deployments are outside this change.
 
 Baseline for methods rollback: Worker version `d9a9f762-f24f-46b2-be8c-2965fb3b5842` (registration and original gold dashboard). Keep the D1 database intact so existing registrations are retained.
 
